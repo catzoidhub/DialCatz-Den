@@ -1,0 +1,27 @@
+# DialCatz Den, built from this repository (SQLite, the default).
+#
+# Dokploy: Create → Compose → provider Git/GitHub → this repository, compose path ./docker-compose.yml.
+#   Environment tab: DIALCATZ_PUBLIC_URL=https://dialcatz.your-domain.com
+#   Domains tab: service "dialcatz", container port 8080, HTTPS on.
+#   Update: push / pull the new version, press Deploy (migrations run at start; data stays in the volume).
+# Elsewhere: cp .env.example .env, edit, then `docker compose up -d --build` (add docker-compose.local.yml to
+# publish port 8080 on the host).
+services:
+  dialcatz:
+    build: .
+    restart: unless-stopped
+    environment:
+      DIALCATZ_PUBLIC_URL: ${DIALCATZ_PUBLIC_URL:-http://localhost:8080}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DIALCATZ_SECRET_KEY: ${DIALCATZ_SECRET_KEY:-}
+      DIALCATZ_GOOGLE_CLIENT_ID: ${DIALCATZ_GOOGLE_CLIENT_ID:-}
+      DIALCATZ_GOOGLE_CLIENT_SECRET: ${DIALCATZ_GOOGLE_CLIENT_SECRET:-}
+      DIALCATZ_GITHUB_CLIENT_ID: ${DIALCATZ_GITHUB_CLIENT_ID:-}
+      DIALCATZ_GITHUB_CLIENT_SECRET: ${DIALCATZ_GITHUB_CLIENT_SECRET:-}
+    expose:
+      - "8080"
+    volumes:
+      - dialcatz-data:/data
+
+volumes:
+  dialcatz-data:

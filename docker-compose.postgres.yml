@@ -1,0 +1,39 @@
+# DialCatz Den with its own PostgreSQL, built from this repository — for bigger teams.
+# Dokploy: like docker-compose.yml, compose path ./docker-compose.postgres.yml, and also set POSTGRES_PASSWORD in
+# the Environment tab. (Or use a Dokploy PostgreSQL database with docker-compose.yml and DATABASE_URL.)
+services:
+  dialcatz:
+    build: .
+    restart: unless-stopped
+    environment:
+      DIALCATZ_PUBLIC_URL: ${DIALCATZ_PUBLIC_URL:-http://localhost:8080}
+      DATABASE_URL: postgres://dialcatz:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/dialcatz?sslmode=disable
+      DIALCATZ_SECRET_KEY: ${DIALCATZ_SECRET_KEY:-}
+      DIALCATZ_GOOGLE_CLIENT_ID: ${DIALCATZ_GOOGLE_CLIENT_ID:-}
+      DIALCATZ_GOOGLE_CLIENT_SECRET: ${DIALCATZ_GOOGLE_CLIENT_SECRET:-}
+      DIALCATZ_GITHUB_CLIENT_ID: ${DIALCATZ_GITHUB_CLIENT_ID:-}
+      DIALCATZ_GITHUB_CLIENT_SECRET: ${DIALCATZ_GITHUB_CLIENT_SECRET:-}
+    expose:
+      - "8080"
+    volumes:
+      - dialcatz-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dialcatz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: dialcatz
+    volumes:
+      - dialcatz-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialcatz"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  dialcatz-data:
+  dialcatz-pg:

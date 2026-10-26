@@ -1,0 +1,9 @@
+bin
+tmp
+*.db
+*.db-*
+.DS_Store
+admin/node_modules
+internal/web/dist/*
+!internal/web/dist/.keep
+.env

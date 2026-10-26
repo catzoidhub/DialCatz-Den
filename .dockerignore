@@ -1,0 +1,8 @@
+bin
+admin/node_modules
+internal/web/dist/*
+!internal/web/dist/.keep
+*.db
+tmp
+.git
+.env

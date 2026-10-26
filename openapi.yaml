@@ -1,0 +1,266 @@
+openapi: 3.1.0
+info:
+  title: DialCatz Den API
+  version: 0.1.0
+  description: |
+    The sync API the DialCatz app uses. There is no login: every call carries a member's device token
+    (`Authorization: Bearer dct_…`), issued by the server's admin directly or through a one-time invite link
+    (`dialcatz://connect?server=<url>&code=<code>`, exchanged at POST /api/v1/connect).
+
+    Sync works with revision numbers: each write takes the workspace's next revision. Pull what changed after the
+    revision you have; push your changes with the revision each was based on. A change based on an older revision
+    than the server's is a conflict and is not applied (the app keeps both versions). Environment variable values
+    never reach the server — only names and flags.
+
+    Live updates: keep GET /api/v1/workspaces/{id}/events open (server-sent events) to hear when to pull, and post
+    POST /api/v1/workspaces/{id}/presence to show teammates what you are looking at.
+
+    Token scope: the admin may limit a token (or the invite it came from) to some of its member's workspaces.
+    /me and the identity from /connect then list only those, and every workspace call outside them answers 403.
+
+    The admin API (/api/admin/*, cookie session + `X-DialCatz: 1` header) serves the embedded admin panel and is
+    not part of this document.
+servers:
+  - url: https://dialcatz.example.com
+components:
+  securitySchemes:
+    token:
+      type: http
+      scheme: bearer
+      description: A member device token, dct_ followed by 43 characters.
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: string } }
+      required: [error]
+    Role:
+      type: string
+      enum: [owner, editor, viewer]
+    Identity:
+      type: object
+      required: [member, device, workspaces]
+      properties:
+        member:
+          type: object
+          required: [id, name, email]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            email: { type: string }
+            avatarUrl:
+              type: string
+              description: >-
+                The picture the admin set, else a Gravatar URL for the email
+                (https://gravatar.com/avatar/<sha256 of the lowercase trimmed email>?s=160&d=404). Gravatar answers
+                404 when the person has none: show initials then.
+        device: { type: string, description: The device this token was issued for. }
+        workspaces:
+          type: array
+          description: The member's workspaces that this token may use (all of them, unless the token is scoped).
+          items:
+            type: object
+            required: [id, name, role]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              role: { $ref: '#/components/schemas/Role' }
+    Kind:
+      type: string
+      enum: [collection, folder, request, environment]
+    Item:
+      type: object
+      required: [id, kind, parentId, name, sort, data, revision, deleted, updatedAt]
+      properties:
+        id: { type: string }
+        kind: { $ref: '#/components/schemas/Kind' }
+        parentId: { type: [string, 'null'] }
+        name: { type: string }
+        sort: { type: number }
+        data:
+          type: object
+          description: 'request / folder / collection: { request?, auth?, description? }; environment: { variables: [{ key, enabled, secret }] }'
+        revision: { type: integer, format: int64 }
+        deleted: { type: boolean }
+        updatedBy:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+        updatedAt: { type: integer, format: int64, description: Unix milliseconds }
+    Change:
+      type: object
+      required: [id, kind, name, deleted, baseRevision]
+      properties:
+        id: { type: string, maxLength: 64 }
+        kind: { $ref: '#/components/schemas/Kind' }
+        parentId: { type: [string, 'null'] }
+        name: { type: string, maxLength: 200 }
+        sort: { type: number }
+        data: { type: object }
+        deleted: { type: boolean }
+        baseRevision: { type: integer, format: int64, description: The revision the client's copy is based on (0 = new). }
+    Presence:
+      type: object
+      required: [memberId, name, device, itemId, at]
+      properties:
+        memberId: { type: string }
+        name: { type: string }
+        device: { type: string, description: The device of the token that posted it (two devices of one member show separately). }
+        itemId: { type: [string, 'null'], description: The item being looked at (r_…), or null for the workspace itself. }
+        at: { type: integer, format: int64, description: Last heartbeat, Unix milliseconds }
+paths:
+  /api/health:
+    get:
+      summary: Is this a DialCatz Den, and which version
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  name: { type: string, const: DialCatz Den }
+                  version: { type: string }
+  /api/v1/connect:
+    post:
+      summary: Exchange a one-time invite code for a device token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+                device: { type: string, maxLength: 80, description: 'A name for this device, e.g. "Andi – MacBook".' }
+      responses:
+        '200':
+          description: The token (shown this once) and who it belongs to
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, identity]
+                properties:
+                  token: { type: string }
+                  identity: { $ref: '#/components/schemas/Identity' }
+        '401': { description: Code used or expired, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: Too many attempts }
+  /api/v1/me:
+    get:
+      summary: Who this token belongs to, and the workspaces it may use
+      security: [{ token: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Identity' } } } }
+        '401': { description: Token missing, revoked or expired }
+  /api/v1/workspaces/{id}/changes:
+    get:
+      summary: Items changed after a revision
+      security: [{ token: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: since, in: query, schema: { type: integer, format: int64, default: 0 } }
+      responses:
+        '200':
+          description: The workspace's current revision and the changed items (deleted ones included, except when since=0)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, items]
+                properties:
+                  revision: { type: integer, format: int64 }
+                  items: { type: array, items: { $ref: '#/components/schemas/Item' } }
+        '403': { description: Not a member of this workspace, or the token's scope leaves it out }
+  /api/v1/workspaces/{id}/push:
+    post:
+      summary: Apply local changes (editors and owners)
+      security: [{ token: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [changes]
+              properties:
+                changes: { type: array, maxItems: 2000, items: { $ref: '#/components/schemas/Change' } }
+      responses:
+        '200':
+          description: What was applied (with new revisions) and what conflicted (with the server's version)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revision, applied, conflicts]
+                properties:
+                  revision: { type: integer, format: int64 }
+                  applied:
+                    type: array
+                    items: { type: object, properties: { id: { type: string }, revision: { type: integer, format: int64 } } }
+                  conflicts:
+                    type: array
+                    items: { type: object, properties: { id: { type: string }, server: { $ref: '#/components/schemas/Item' } } }
+        '403': { description: Not a member, a viewer, or the token's scope leaves the workspace out }
+  /api/v1/workspaces/{id}/events:
+    get:
+      summary: Live events of a workspace (server-sent events)
+      description: |
+        A `text/event-stream` that stays open (no buffering; `Cache-Control: no-cache`, `X-Accel-Buffering: no`).
+        Viewers may subscribe. Events, each `event: <name>` + one `data:` line of JSON:
+
+        - `hello` — first, once: `{"revision":N,"presence":[Presence…]}`
+        - `change` — after a push to this workspace applied something (sent once the push has committed):
+          `{"revision":N,"by":{"id":"m_…","name":"…"}}`. Pull /changes?since=<your revision>; the pusher's own
+          stream gets it too.
+        - `presence` — whenever the workspace's presence list changes (a device appears, leaves, moves to another
+          item, or expires): `{"presence":[Presence…]}`. A heartbeat that changes nothing sends nothing.
+
+        A comment line `: ping` comes every 25 s. The stream ends when the token is revoked, the member loses the
+        workspace or the token's scope no longer covers it (checked at each ping), when the server shuts down, or
+        when the client reads too slowly; reconnect and start again from `hello`. Closing the stream removes this
+        token's presence entry on the workspace (once its last stream there closes).
+      security: [{ token: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: |
+                event: hello
+                data: {"revision":12,"presence":[]}
+
+                event: change
+                data: {"revision":13,"by":{"id":"m_7d0c0bb4f97110d3","name":"Andi Pratama"}}
+
+                : ping
+        '403': { description: Not a member, or the token's scope leaves the workspace out }
+  /api/v1/workspaces/{id}/presence:
+    post:
+      summary: Say which item this device is looking at (heartbeat)
+      description: >-
+        Records the item for this token (member + device). The entry expires 60 s after the last post, so re-post
+        every 30 s and on every tab change; closing the event stream removes it at once. Viewers may post.
+      security: [{ token: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itemId]
+              properties:
+                itemId: { type: [string, 'null'], maxLength: 64, description: The open item, or null for none. }
+      responses:
+        '204': { description: Recorded }
+        '403': { description: Not a member, or the token's scope leaves the workspace out }
