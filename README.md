@@ -153,8 +153,8 @@ source — the admin panel links to it at the foot of the sidebar.
 The names Catzoid, DialCatz and DialCatz Den and the Catzoid cat are trademarks and are **not** covered by the
 licence: a fork must use its own name and icon. See [`TRADEMARKS.md`](TRADEMARKS.md).
 
-Contributions are welcome. Before your first pull request is merged you sign the
-[contributor licence agreement](CLA.md) through the CLA check on the pull request — you keep the copyright of your
-work.
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Before your first pull request is merged you
+sign the [contributor licence agreement](CLA.md) through the CLA check on the pull request — you keep the copyright of
+your work. Questions and bug reports: [`SUPPORT.md`](SUPPORT.md); security problems, privately: [`SECURITY.md`](SECURITY.md).
 
 Copyright © 2026 Mahryan Rakhmatullah

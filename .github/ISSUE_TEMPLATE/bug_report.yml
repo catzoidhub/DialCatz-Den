@@ -1,0 +1,56 @@
+name: Bug report
+description: Something does not work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thank you for reporting! Please leave out tokens, invite links and passwords — shorten them to `abc…`.
+        A security problem? Please do not report it here — use **Security → Report a vulnerability** instead.
+  - type: input
+    id: version
+    attributes:
+      label: Den version
+      description: The tag or image you run — `https://your-den/api/health` shows it.
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options: [SQLite, PostgreSQL]
+    validations:
+      required: true
+  - type: input
+    id: deploy
+    attributes:
+      label: How it runs
+      placeholder: "Dokploy from Git, behind Cloudflare"
+  - type: input
+    id: app
+    attributes:
+      label: DialCatz version (if the problem shows in the app)
+      placeholder: "1.0.0"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message, log or screenshot
+      description: Paste text as text, drop screenshots in. Remove anything secret first.
