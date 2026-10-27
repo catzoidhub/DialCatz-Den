@@ -1,10 +1,20 @@
-# DialCatz Den
+<p align="center"><img src="admin/src/assets/icon.png" width="128" height="128" alt="DialCatz Den"></p>
 
-*Where the team's cats keep their calls.*
+<h1 align="center">DialCatz Den</h1>
+<p align="center"><em>Where the team's cats keep their calls.</em></p>
+<p align="center">
+  <a href="https://catzoid.com/dialcatz">Website</a> ·
+  <a href="https://catzoid.com/docs/dialcatz-den">Docs</a> ·
+  <a href="https://catzoid.com/dialcatz/download">Get DialCatz</a> ·
+  <a href="https://catzoid.com/community">Community</a>
+</p>
 
 The self-hosted team server for [DialCatz](https://github.com/catzoidhub/DialCatz), the open-source API client. Each team runs its own: it keeps the team's shared
 collections and environments, and knows who is who. One small container — Go binary with the admin panel
 embedded, SQLite inside (or PostgreSQL), ~30 MB image, distroless, non-root.
+
+Part of [Catzoid](https://catzoid.com) — free, open-source developer tools with nine lives. All cats, no catch: no
+account, no Pro tier, nothing locked behind a payment.
 
 **No accounts for members.** The admin creates members in the admin panel and sends each of their devices a
 one-time invite link. Opening it in DialCatz exchanges the code for that device's own token (kept in the system's
