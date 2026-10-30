@@ -220,6 +220,7 @@ paths:
           stream gets it too.
         - `presence` — whenever the workspace's presence list changes (a device appears, leaves, moves to another
           item, or expires): `{"presence":[Presence…]}`. A heartbeat that changes nothing sends nothing.
+        - `renamed` — the owner renamed the workspace (PATCH /api/v1/workspaces/{id}): `{"name":"…","by":{…}}`.
 
         A comment line `: ping` comes every 25 s. The stream ends when the token is revoked, the member loses the
         workspace or the token's scope no longer covers it (checked at each ping), when the server shuts down, or
@@ -243,6 +244,40 @@ paths:
 
                 : ping
         '403': { description: Not a member, or the token's scope leaves the workspace out }
+  /api/v1/workspaces/{id}:
+    patch:
+      summary: Rename the workspace (its owner only)
+      description: >-
+        The workspace's owner may rename it from the app; editors and viewers get 403. The open event streams of the
+        workspace get a `renamed` event ({"name", "by"}), so every member's app shows the new name. Deleting a
+        workspace stays in the admin panel.
+      security: [{ token: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 120 }
+      responses:
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, name]
+                properties:
+                  ok: { type: boolean }
+                  name: { type: string }
+        '400': { description: No name, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '401': { description: Missing or revoked token, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: Not the owner, or the token does not cover this workspace, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: No such workspace, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/v1/workspaces/{id}/presence:
     post:
       summary: Say which item this device is looking at (heartbeat)

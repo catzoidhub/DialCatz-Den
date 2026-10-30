@@ -68,6 +68,7 @@ func (s *Server) Router(panel fs.FS) *gin.Engine {
 	authed.POST("/workspaces/:id/push", s.push)
 	authed.GET("/workspaces/:id/events", s.events)
 	authed.POST("/workspaces/:id/presence", s.presence)
+	authed.PATCH("/workspaces/:id", s.renameByOwner)
 
 	adm := r.Group("/api/admin", s.csrf())
 	adm.GET("/state", s.adminState)

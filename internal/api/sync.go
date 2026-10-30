@@ -130,6 +130,40 @@ func (s *Server) role(c *gin.Context) (string, bool) {
 	return role, true
 }
 
+// renameByOwner lets a workspace's owner rename it from the app (deleting stays in the admin panel). The open
+// event streams hear "renamed", so every member's app shows the new name at once.
+func (s *Server) renameByOwner(c *gin.Context) {
+	role, ok := s.role(c)
+	if !ok {
+		return
+	}
+	if role != "owner" {
+		fail(c, http.StatusForbidden, "Only the workspace's owner can rename it")
+		return
+	}
+	var in struct {
+		Name string `json:"name"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	if in.Name = clean(in.Name, 120); in.Name == "" {
+		fail(c, http.StatusBadRequest, "Give the workspace a name")
+		return
+	}
+	if err := s.store.RenameWorkspace(c.Param("id"), in.Name); err != nil {
+		storeErr(c, err, "No such workspace")
+		return
+	}
+	cl := caller(c)
+	s.store.Audit("member:"+cl.Member.Name, "workspace.renamed", in.Name)
+	s.hub.Publish(c.Param("id"), "renamed", struct {
+		Name string       `json:"name"`
+		By   store.Person `json:"by"`
+	}{in.Name, store.Person{ID: cl.Member.ID, Name: cl.Member.Name}})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "name": in.Name})
+}
+
 func (s *Server) changes(c *gin.Context) {
 	if _, ok := s.role(c); !ok {
 		return
