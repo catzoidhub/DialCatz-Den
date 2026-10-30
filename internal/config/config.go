@@ -43,9 +43,10 @@ func env(key, fallback string) string {
 
 func Load() (*Config, error) {
 	c := &Config{
-		Addr:        env("DIALCATZ_ADDR", ":8080"),
-		PublicURL:   strings.TrimRight(env("DIALCATZ_PUBLIC_URL", "http://localhost:8080"), "/"),
-		DataDir:     env("DIALCATZ_DATA_DIR", "/data"),
+		Addr:      env("DIALCATZ_ADDR", ":8080"),
+		PublicURL: strings.TrimRight(env("DIALCATZ_PUBLIC_URL", "http://localhost:8080"), "/"),
+		// The image sets /data (Dockerfile); run from the source folder (go run, DevCatz) it is ./tmp.
+		DataDir:     env("DIALCATZ_DATA_DIR", "tmp"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		SecretKey:   os.Getenv("DIALCATZ_SECRET_KEY"),
 
